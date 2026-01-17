@@ -1,0 +1,623 @@
+"""
+Interfaz gráfica de usuario para el convertidor DOCX a PDF
+Versión mejorada con layout 16:9 y dos columnas
+"""
+
+import tkinter as tk
+from tkinter import scrolledtext, ttk
+import os
+from PIL import Image, ImageTk
+
+try:
+    from tkinterdnd2 import DND_FILES
+    DRAG_DROP_DISPONIBLE = True
+except ImportError:
+    DRAG_DROP_DISPONIBLE = False
+    print("tkinterdnd2 no disponible - drag & drop deshabilitado")
+
+from src.config import (
+    WINDOW_TITLE,
+    COLOR_SUCCESS, COLOR_ERROR, COLOR_INFO, 
+    COLOR_NEUTRAL, COLOR_DISABLED,
+    COLOR_LOGO_BG, COLOR_LOGO_SUCCESS,
+    PROGRESS_BAR_STYLE, PROGRESS_BAR_COLORS
+)
+
+
+class GUI:
+    """Clase que gestiona toda la interfaz gráfica de la aplicación"""
+
+    def __init__(self, root, controller):
+        """
+        Inicializa la interfaz gráfica
+        
+        Args:
+            root: Ventana principal de Tkinter (ya creada)
+            controller: Instancia del controlador que maneja la lógica
+        """
+        self.root = root
+        self.controller = controller
+
+        # Inicializar variables de preview ANTES de crear interfaz
+        self.logo_photo = None
+        self.canvas_image_id = None
+        self.canvas_logo_preview = None
+
+        # --- Variables para Checkboxes ---
+        # Encabezado y Pie
+        self.var_add_logo = tk.BooleanVar(value=True)
+        self.var_add_folder_code = tk.BooleanVar(value=True)
+        self.var_add_header_line = tk.BooleanVar(value=True)
+        self.var_add_footer_line = tk.BooleanVar(value=True)
+        self.var_add_author = tk.BooleanVar(value=True)
+        self.var_add_page_number = tk.BooleanVar(value=True)
+
+        # Copiar
+        self.var_respect_structure = tk.BooleanVar(value=True)
+        self.var_copy_attachments = tk.BooleanVar(value=True)
+        self.var_save_modified_dest = tk.BooleanVar(value=True)
+        self.var_copy_as_pdf = tk.BooleanVar(value=True)
+
+        # Extensiones
+        self.var_process_docx = tk.BooleanVar(value=True)
+        self.var_process_docm = tk.BooleanVar(value=False)
+
+        # Configurar ventana
+        self.root.title(WINDOW_TITLE)
+        self.root.geometry("1280x720")
+        self.root.resizable(False, False) 
+
+        self._crear_interfaz()
+
+    def _crear_interfaz(self):
+        """Crea todos los elementos de la interfaz en layout de dos columnas"""
+        frame_principal = tk.Frame(self.root, padx=15, pady=15)
+        frame_principal.pack(fill=tk.BOTH, expand=True)
+
+        # ====
+        # COLUMNA IZQUIERDA: Configuración
+        # ====
+        frame_izquierda = tk.Frame(frame_principal)
+        frame_izquierda.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
+
+        self._crear_seccion_logo(frame_izquierda)
+        self._crear_seccion_autor(frame_izquierda)
+        self._crear_seccion_opciones_detalladas(frame_izquierda)
+
+        # ====
+        # COLUMNA DERECHA: Carpetas, Destino y Progreso
+        # ====
+        frame_derecha = tk.Frame(frame_principal)
+        frame_derecha.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self._crear_seccion_carpetas(frame_derecha)
+        self._crear_seccion_excepciones(frame_derecha)
+        self._crear_seccion_destino(frame_derecha)
+        self._crear_boton_empezar(frame_derecha)
+        self._crear_seccion_progreso(frame_derecha)
+        self._crear_seccion_log(frame_derecha)
+
+    def _crear_seccion_logo(self, parent):
+        """Crea la sección de selección de logo - versión compacta"""
+        frame = tk.LabelFrame(
+            parent, 
+            text="🖼️ Logo del Encabezado", 
+            font=("Arial", 10, "bold"), 
+            padx=10, 
+            pady=5
+        )
+        frame.pack(fill=tk.X, pady=(0, 5))
+
+        # Canvas para preview - Dimensiones fijas
+        CANVAS_W, CANVAS_H = 500, 100
+        self.canvas_preview_width = CANVAS_W
+        self.canvas_preview_height = CANVAS_H
+
+        self.canvas_logo_preview = tk.Canvas(
+            frame,
+            width=CANVAS_W,
+            height=CANVAS_H,
+            bg=COLOR_LOGO_BG,
+            highlightthickness=1,
+            highlightbackground="#cccccc"
+        )
+        self.canvas_logo_preview.pack(pady=(0, 5), fill=tk.X)
+
+        # Placeholder inicial
+        self.canvas_logo_preview.create_text(
+            CANVAS_W // 2, CANVAS_H // 2,
+            text="Arrastra aquí el logo (PNG/JPG)",
+            fill="#999999",
+            font=("Arial", 10),
+            tags="placeholder"
+        )
+
+        # Habilitar drag & drop
+        if DRAG_DROP_DISPONIBLE:
+            self.canvas_logo_preview.drop_target_register(DND_FILES)
+            self.canvas_logo_preview.dnd_bind('<<Drop>>', self.controller.drop_logo)
+
+        # Botón examinar
+        tk.Button(
+            frame, 
+            text="📂 Examinar Logo", 
+            command=self.controller.examinar_logo,
+            bg=COLOR_INFO, 
+            fg="white", 
+            font=("Arial", 8, "bold")
+        ).pack(fill=tk.X)
+
+    def _crear_seccion_autor(self, parent):
+        """Crea la sección de autor - versión compacta"""
+        frame = tk.Frame(parent)
+        frame.pack(fill=tk.X, pady=(0, 5))
+        
+        tk.Label(
+            frame, 
+            text="📝 Autor:", 
+            font=("Arial", 9, "bold")
+        ).pack(side=tk.LEFT)
+        
+        self.entry_autor = tk.Entry(frame, font=("Arial", 9))
+        self.entry_autor.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
+        
+        # Cargar valor por defecto
+        autor_default = self._cargar_autor_desde_archivo()
+        self.entry_autor.insert(0, autor_default)
+
+    def _crear_seccion_opciones_detalladas(self, parent):
+        """Crea las secciones de opciones detalladas con checkboxes"""
+        # Encabezado y Pie de Página
+        f_hp = tk.LabelFrame(
+            parent, 
+            text="📄 Encabezado y Pie de Página", 
+            font=("Arial", 9, "bold"), 
+            padx=10, 
+            pady=5
+        )
+        f_hp.pack(fill=tk.X, pady=5)
+
+        opts_hp = [
+            ("Logo en encabezado", self.var_add_logo),
+            ("Código carpeta", self.var_add_folder_code),
+            ("Línea encabezado", self.var_add_header_line),
+            ("Línea pie página", self.var_add_footer_line),
+            ("Añadir Autor", self.var_add_author),
+            ("Número página", self.var_add_page_number)
+        ]
+        for i, (txt, var) in enumerate(opts_hp):
+            tk.Checkbutton(
+                f_hp, 
+                text=txt, 
+                variable=var, 
+                font=("Arial", 8)
+            ).grid(row=i//2, column=i%2, sticky=tk.W, padx=5, pady=2)
+
+        # Opciones de Copia
+        f_cp = tk.LabelFrame(
+            parent, 
+            text="📂 Opciones de Copia", 
+            font=("Arial", 9, "bold"), 
+            padx=10, 
+            pady=5
+        )
+        f_cp.pack(fill=tk.X, pady=5)
+
+        opts_cp = [
+            ("Respetar estructura", self.var_respect_structure),
+            ("Copiar anexos", self.var_copy_attachments),
+            ("Guardar modificado en destino", self.var_save_modified_dest),
+            ("Copiar como PDF", self.var_copy_as_pdf)
+        ]
+        for i, (txt, var) in enumerate(opts_cp):
+            tk.Checkbutton(
+                f_cp, 
+                text=txt, 
+                variable=var, 
+                font=("Arial", 8)
+            ).grid(row=i//2, column=i%2, sticky=tk.W, padx=5, pady=2)
+
+        # Extensiones a procesar
+        f_ex = tk.LabelFrame(
+            parent, 
+            text="📄 Extensiones a procesar", 
+            font=("Arial", 9, "bold"), 
+            padx=10, 
+            pady=5
+        )
+        f_ex.pack(fill=tk.X, pady=5)
+        
+        tk.Checkbutton(
+            f_ex, 
+            text="Archivos .docx", 
+            variable=self.var_process_docx, 
+            font=("Arial", 8)
+        ).pack(side=tk.LEFT)
+        
+        tk.Checkbutton(
+            f_ex, 
+            text="Archivos .docm", 
+            variable=self.var_process_docm, 
+            font=("Arial", 8)
+        ).pack(side=tk.LEFT, padx=20)
+
+    def _crear_seccion_carpetas(self, parent):
+        """Crea la sección de carpetas a procesar"""
+        frame = tk.LabelFrame(
+            parent, 
+            text="📁 Carpetas a Procesar", 
+            font=("Arial", 9, "bold"), 
+            padx=5, 
+            pady=5
+        )
+        frame.pack(fill=tk.X, pady=(0, 5))
+
+        # Listbox
+        f_list = tk.Frame(frame)
+        f_list.pack(fill=tk.X)
+        
+        self.listbox_carpetas = tk.Listbox(f_list, height=4, font=("Arial", 8))
+        self.listbox_carpetas.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # Habilitar drag & drop
+        if DRAG_DROP_DISPONIBLE:
+            self.listbox_carpetas.drop_target_register(DND_FILES)
+            self.listbox_carpetas.dnd_bind('<<Drop>>', self.controller.drop_carpeta)
+
+        # Botones de gestión
+        f_btns = tk.Frame(frame)
+        f_btns.pack(fill=tk.X, pady=2)
+        
+        tk.Button(
+            f_btns, 
+            text="➕", 
+            command=self.controller.agregar_carpeta, 
+            width=3,
+            bg=COLOR_SUCCESS,
+            fg="white"
+        ).pack(side=tk.LEFT)
+        
+        tk.Button(
+            f_btns, 
+            text="❌", 
+            command=self.controller.quitar_carpeta, 
+            width=3,
+            bg=COLOR_ERROR,
+            fg="white"
+        ).pack(side=tk.LEFT, padx=2)
+
+    def _crear_seccion_excepciones(self, parent):
+        """Crea la sección de excepciones (no procesar / no copiar)"""
+        f_exc = tk.Frame(parent)
+        f_exc.pack(fill=tk.X, pady=5)
+
+        # No procesar
+        f1 = tk.LabelFrame(
+            f_exc, 
+            text="🚫 No procesar (nombre)", 
+            font=("Arial", 8, "bold"),
+            padx=5,
+            pady=5
+        )
+        f1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 2))
+        
+        self.text_no_process = tk.Text(f1, height=3, font=("Arial", 8))
+        self.text_no_process.pack(fill=tk.BOTH)
+
+        # No copiar
+        f2 = tk.LabelFrame(
+            f_exc, 
+            text="🚫 No copiar (archivo/Carpeta)", 
+            font=("Arial", 8, "bold"),
+            padx=5,
+            pady=5
+        )
+        f2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(2, 0))
+        
+        self.text_no_copy = tk.Text(f2, height=3, font=("Arial", 8))
+        self.text_no_copy.pack(fill=tk.BOTH)
+
+    def _crear_seccion_destino(self, parent):
+        """Crea la sección de carpeta destino"""
+        frame = tk.Frame(parent)
+        frame.pack(fill=tk.X, pady=5)
+        
+        tk.Label(
+            frame, 
+            text="💾 Destino:", 
+            font=("Arial", 9, "bold")
+        ).pack(side=tk.LEFT)
+        
+        self.entry_destino = tk.Entry(frame, font=("Arial", 9))
+        self.entry_destino.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+        
+        # Cargar destino por defecto desde config si existe
+        if hasattr(self.controller, 'config_manager'):
+            destino_default = self.controller.config_manager.get_str('USER', 'last_destination')
+            if destino_default:
+                self.entry_destino.insert(0, destino_default)
+        
+        tk.Button(
+            frame, 
+            text="📂", 
+            command=self.controller.seleccionar_destino,
+            bg=COLOR_INFO,
+            fg="white"
+        ).pack(side=tk.LEFT)
+
+    def _crear_boton_empezar(self, parent):
+        """Crea el botón principal de inicio"""
+        self.btn_empezar = tk.Button(
+            parent, 
+            text="🚀 EMPEZAR CONVERSIÓN", 
+            font=("Arial", 10, "bold"), 
+            bg=COLOR_SUCCESS, 
+            fg="white", 
+            command=self.controller.empezar_proceso, 
+            height=1
+        )
+        self.btn_empezar.pack(fill=tk.X, pady=5)
+
+    def _crear_seccion_progreso(self, parent):
+        """Crea la sección de barra de progreso"""
+        self.label_progreso = tk.Label(
+            parent, 
+            text="⏳ Esperando...", 
+            font=("Arial", 8)
+        )
+        self.label_progreso.pack(anchor=tk.W)
+        
+        # Configurar estilo de barra de progreso
+        style = ttk.Style()
+        style.theme_use('default')
+        style.configure(PROGRESS_BAR_STYLE, **PROGRESS_BAR_COLORS)
+        
+        self.progress_bar = ttk.Progressbar(
+            parent, 
+            mode='determinate', 
+            style=PROGRESS_BAR_STYLE
+        )
+        self.progress_bar.pack(fill=tk.X)
+
+    def _crear_seccion_log(self, parent):
+        """Crea la sección de log de progreso"""
+        self.log_text = scrolledtext.ScrolledText(
+            parent, 
+            height=8, 
+            font=("Consolas", 8)
+        )
+        self.log_text.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
+
+    def _cargar_autor_desde_archivo(self):
+        """Carga el contenido de autor.txt como valor por defecto"""
+        try:
+            ruta_autor = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
+                "autor.txt"
+            )
+            if os.path.exists(ruta_autor):
+                with open(ruta_autor, 'r', encoding='utf-8') as f:
+                    return f.read().strip()
+        except Exception as e:
+            print(f"No se pudo cargar autor.txt: {e}")
+        return ""
+
+    # ====
+    # MÉTODOS PÚBLICOS PARA ACTUALIZAR LA INTERFAZ
+    # ====
+
+    def log(self, mensaje):
+        """Agrega un mensaje al log"""
+        self.log_text.insert(tk.END, mensaje + "\n")
+        self.log_text.see(tk.END)
+        self.root.update_idletasks()
+
+    def limpiar_log(self):
+        """Limpia el contenido del log"""
+        self.log_text.delete(1.0, tk.END)
+
+    def actualizar_progreso(self, valor, texto=None):
+        """Actualiza la barra de progreso"""
+        self.progress_bar['value'] = valor
+        if texto:
+            self.label_progreso.config(text=f"⏳ {texto}")
+        self.root.update_idletasks()
+
+    def actualizar_label_logo(self, texto, exitoso=True):
+        """Método obsoleto - mantenido por compatibilidad"""
+        pass  # El label ya no existe, se usa solo el canvas preview
+
+    def mostrar_preview_logo(self, ruta_logo):
+        """Muestra una previsualización del logo en el Canvas - CENTRADO"""
+        if self.canvas_logo_preview is None:
+            return
+            
+        try:
+            img = Image.open(ruta_logo)
+            
+            # Forzar actualización del canvas para obtener dimensiones reales
+            self.canvas_logo_preview.update()
+            
+            # Obtener dimensiones reales del canvas
+            canvas_w = self.canvas_logo_preview.winfo_width()
+            canvas_h = self.canvas_logo_preview.winfo_height()
+            
+            # Si no tiene dimensiones, usar las configuradas
+            if canvas_w <= 1:
+                canvas_w = self.canvas_preview_width
+            if canvas_h <= 1:
+                canvas_h = self.canvas_preview_height
+            
+            # Calcular dimensiones con padding mínimo
+            max_w = canvas_w - 10
+            max_h = canvas_h - 10
+            
+            # Calcular ratio manteniendo aspecto - maximizar el tamaño
+            ratio = min(max_w / img.width, max_h / img.height)
+            new_w = int(img.width * ratio)
+            new_h = int(img.height * ratio)
+            
+            # Redimensionar imagen
+            img_resized = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            self.logo_photo = ImageTk.PhotoImage(img_resized)
+            
+            # Limpiar canvas
+            self.canvas_logo_preview.delete("all")
+            self.canvas_logo_preview.config(bg="white")
+            
+            # Calcular centro REAL del canvas
+            center_x = canvas_w / 2.0
+            center_y = canvas_h / 2.0
+            
+            # Crear imagen CENTRADA con coordenadas flotantes
+            self.canvas_image_id = self.canvas_logo_preview.create_image(
+                center_x, center_y,
+                image=self.logo_photo,
+                anchor=tk.CENTER
+            )
+            
+        except Exception as e:
+            if self.canvas_logo_preview:
+                self.canvas_logo_preview.delete("all")
+                self.canvas_logo_preview.config(bg=COLOR_LOGO_BG)
+                center_x = self.canvas_preview_width / 2.0
+                center_y = self.canvas_preview_height / 2.0
+                self.canvas_logo_preview.create_text(
+                    center_x, center_y,
+                    text=f"❌ Error al cargar\n{str(e)[:30]}",
+                    fill="#ff0000",
+                    font=("Arial", 9)
+                )
+
+    def limpiar_preview_logo(self):
+        """Limpia la previsualización del logo"""
+        if self.canvas_logo_preview is None:
+            return
+            
+        self.logo_photo = None
+        self.canvas_image_id = None
+        self.canvas_logo_preview.delete("all")
+        self.canvas_logo_preview.config(bg=COLOR_LOGO_BG)
+        self.canvas_logo_preview.create_text(
+            self.canvas_preview_width // 2,
+            self.canvas_preview_height // 2,
+            text="Arrastra aquí el logo\n(PNG/JPG)",
+            fill="#9999",
+            font=("Arial", 10),
+            tags="placeholder"
+        )
+
+    def deshabilitar_boton_empezar(self):
+        """Deshabilita el botón de empezar"""
+        self.btn_empezar.config(state=tk.DISABLED, bg=COLOR_DISABLED)
+
+    def habilitar_boton_empezar(self):
+        """Habilita el botón de empezar"""
+        self.btn_empezar.config(state=tk.NORMAL, bg=COLOR_SUCCESS)
+
+    # ====
+    # MÉTODOS PARA OBTENER DATOS DE LA INTERFAZ
+    # ====
+
+    def obtener_palabras_prohibidas(self):
+        """Obtiene la lista de palabras prohibidas (excepciones de procesamiento)"""
+        texto = self.text_no_process.get("1.0", tk.END).strip()
+        if not texto:
+            return []
+        palabras = [linea.strip().lower() for linea in texto.split('\n') if linea.strip()]
+        return palabras
+
+    def obtener_autor(self):
+        """Obtiene el nombre del autor"""
+        return self.entry_autor.get().strip()
+
+    def obtener_carpeta_destino(self):
+        """Obtiene la ruta de la carpeta destino"""
+        return os.path.normpath(self.entry_destino.get().strip())
+
+    def obtener_opciones(self):
+        """Obtiene las opciones básicas (para compatibilidad con código anterior)"""
+        return {
+            'encabezado': self.var_add_logo.get() or self.var_add_folder_code.get() or self.var_add_header_line.get(),
+            'pie_pagina': self.var_add_footer_line.get() or self.var_add_author.get() or self.var_add_page_number.get(),
+            'copiar_archivos': self.var_copy_attachments.get(),
+            'respetar_estructura': self.var_respect_structure.get()
+        }
+
+    def obtener_opciones_completas(self):
+        """Captura el estado actual de toda la interfaz para enviarlo al controlador"""
+        return {
+            # Encabezado y Pie
+            'add_logo': self.var_add_logo.get(),
+            'add_folder_code': self.var_add_folder_code.get(),
+            'add_header_line': self.var_add_header_line.get(),
+            'add_footer_line': self.var_add_footer_line.get(),
+            'add_author': self.var_add_author.get(),
+            'add_page_number': self.var_add_page_number.get(),
+            'autor_nombre': self.entry_autor.get().strip(),
+
+            # Opciones de Copia
+            'respect_structure': self.var_respect_structure.get(),
+            'copy_attachments': self.var_copy_attachments.get(),
+            'save_modified_dest': self.var_save_modified_dest.get(),
+            'copy_as_pdf': self.var_copy_as_pdf.get(),
+
+            # Extensiones
+            'process_docx': self.var_process_docx.get(),
+            'process_docm': self.var_process_docm.get(),
+
+            # Rutas y Listas
+            'carpetas': list(self.listbox_carpetas.get(0, tk.END)),
+            'destino': self.entry_destino.get().strip(),
+            'excepciones_procesar': self.text_no_process.get("1.0", tk.END).strip(),
+            'excepciones_copiar': self.text_no_copy.get("1.0", tk.END).strip()
+        }
+
+    # ====
+    # MÉTODOS PARA GESTIONAR CARPETAS
+    # ====
+
+    def establecer_carpeta_destino(self, ruta):
+        """Establece la ruta de la carpeta destino"""
+        self.entry_destino.delete(0, tk.END)
+        self.entry_destino.insert(0, ruta)
+
+    def agregar_carpeta_a_lista(self, carpeta):
+        """Agrega una carpeta a la lista"""
+        self.listbox_carpetas.insert(tk.END, carpeta)
+
+    def quitar_carpeta_de_lista(self, index):
+        """Quita una carpeta de la lista por índice"""
+        self.listbox_carpetas.delete(index)
+
+    def obtener_seleccion_carpeta(self):
+        """Obtiene el índice de la carpeta seleccionada"""
+        seleccion = self.listbox_carpetas.curselection()
+        return seleccion[0] if seleccion else None
+
+    def limpiar_lista_carpetas(self):
+        """Limpia toda la lista de carpetas"""
+        self.listbox_carpetas.delete(0, tk.END)
+
+    # ====
+    # DIÁLOGOS
+    # ====
+
+    def mostrar_error(self, titulo, mensaje):
+        """Muestra un diálogo de error"""
+        from tkinter import messagebox
+        messagebox.showerror(titulo, mensaje)
+
+    def mostrar_info(self, titulo, mensaje):
+        """Muestra un diálogo de información"""
+        from tkinter import messagebox
+        messagebox.showinfo(titulo, mensaje)
+
+    def mostrar_pregunta(self, titulo, mensaje):
+        """Muestra un diálogo de pregunta (Sí/No)"""
+        from tkinter import messagebox
+        return messagebox.askyesno(titulo, mensaje)
+
+    def ejecutar(self):
+        """Inicia el loop principal de la interfaz"""
+        self.root.mainloop()

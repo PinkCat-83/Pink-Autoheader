@@ -48,6 +48,12 @@ class AppController:
             if last_logo and os.path.exists(last_logo):
                 self._establecer_logo(last_logo, origen="config")
 
+            # Cargar carpeta de último destino utilizado
+            last_destination = self.config_manager.get_str('USER', 'last_destination')
+            if last_destination and os.path.exists(last_destination):
+                self.carpeta_destino = last_destination
+                self.gui.establecer_carpeta_destino(last_destination)
+
             # Cargar Opciones: Encabezado y Pie
             self.gui.var_add_logo.set(self.config_manager.get_bool('HEADER_FOOTER', 'add_logo', True))
             self.gui.var_add_folder_code.set(self.config_manager.get_bool('HEADER_FOOTER', 'add_folder_code', True))
@@ -172,6 +178,7 @@ class AppController:
         # Guardar Configuración
         self.config_manager.set_val('USER', 'author', self.gui.entry_autor.get())
         self.config_manager.set_val('USER', 'last_logo', self.ruta_logo)
+        self.config_manager.set_val('USER', 'last_destination', self.carpeta_destino)
 
         self.config_manager.set_val('HEADER_FOOTER', 'add_logo', self.gui.var_add_logo.get())
         self.config_manager.set_val('HEADER_FOOTER', 'add_folder_code', self.gui.var_add_folder_code.get())

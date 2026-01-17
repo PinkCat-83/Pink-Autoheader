@@ -46,8 +46,8 @@ autopdf/
 ## Uso
 
 1. **Configurar opciones** de formato mediante checkboxes:
-   - **Formato de página**: Logo, líneas decorativas, autor, código, numeración
-   - **Opciones de carpeta**: Respetar estructura, copiar anexos, convertir a PDF
+   - **Formato de página**:  [ ] Logo,  [ ] líneas decorativas,  [ ] autor,  [ ] código,  [ ] numeración
+   - **Opciones de carpeta**:  [ ] Respetar estructura,  [ ] copiar anexos,  [ ] convertir a PDF
    - **Extensiones**: Archivos `.docx` y `.docm`
 
 2. **Seleccionar carpetas de origen** mediante drag & drop o botón de selección
@@ -71,9 +71,10 @@ autopdf/
 - [ ] **Refactorización**: Dividir archivos complejos (`word_processor.py`, `gui.py`, `controller.py`) en funciones modulares y subcarpetas
 
 ### Funcionalidades Pendientes
-- [ ] **Config.ini**: Guardar y cargar última carpeta destino automáticamente (parcialmente implementado)
+- [X] **Config.ini**: Guardar y cargar última carpeta destino automáticamente
 - [ ] **Sistema de renombre automático**: Basado en código de carpeta para reorganización masiva
 - [ ] **Exportar log**: Generar archivo `.txt` externo con historial de procesamiento
+- [ ] **Arrastrar** carpeta de destino además del botón de buscarlo.
 
 ### Bugs Conocidos
 - [ ] **Código de carpeta**: Se copia nombre completo en lugar de solo el código extraído

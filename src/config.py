@@ -28,6 +28,7 @@ WD_HEADER_FOOTER_PRIMARY = 1
 
 # Formatos de archivo
 WD_FORMAT_XML_DOCUMENT = 16  # .docx
+WD_FORMAT_XML_DOCUMENT_MACRO = 13 # .docm
 WD_FORMAT_PDF = 17           # .pdf
 
 # Alineación
@@ -76,7 +77,7 @@ LINE_ARROWHEAD_WIDTH = 1                 # msoArrowheadWidthNarrow
 LINE_ARROWHEAD_LENGTH = 1                # msoArrowheadLengthShort
 
 # Posiciones de líneas
-LINE_POSITION_Y_HEADER = 68              # Posición Y en encabezado
+LINE_POSITION_Y_HEADER = 66              # Posición Y en encabezado (antes 68)
 LINE_POSITION_Y_FOOTER_OFFSET = 60       # Offset desde el final de página
 
 # ============================================

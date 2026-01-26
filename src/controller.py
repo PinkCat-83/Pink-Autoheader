@@ -159,18 +159,53 @@ class AppController:
 
     def empezar_proceso(self):
         """Valida, guarda configuración y lanza el proceso"""
+        
+        # Validación 1: Logo si está activado
         if not self.ruta_logo and self.gui.var_add_logo.get():
             self.gui.mostrar_error("Error", "Debes seleccionar un logo si la opción está activa")
             return
+        
+        # Validación 2: Carpetas a procesar
         if not self.carpetas_a_procesar:
             self.gui.mostrar_error("Error", "Agrega carpetas a procesar")
             return
 
+        # Validación 3: Carpeta destino válida
         self.carpeta_destino = os.path.normpath(self.gui.entry_destino.get().strip())
         if not os.path.isdir(self.carpeta_destino):
             self.gui.mostrar_error("Error", "Carpeta destino no válida")
             return
 
+        # ✅ Validación 4: Al menos una opción de salida debe estar activa
+        tiene_salida = (
+            self.gui.var_copy_attachments.get() or 
+            self.gui.var_save_modified_dest.get() or 
+            self.gui.var_copy_as_pdf.get()
+        )
+        
+        if not tiene_salida:
+            self.gui.mostrar_error(
+                "Sin acciones configuradas", 
+                "Debes activar al menos una opción:\n\n" +
+                "• Copiar anexos\n" +
+                "• Guardar modificado en destino\n" +
+                "• Copiar como PDF\n\n" +
+                "De lo contrario, el programa no hará nada."
+            )
+            return
+
+        # ✅ Validación 5: Si "Añadir Autor" está activado, el campo no puede estar vacío
+        if self.gui.var_add_author.get():
+            autor_texto = self.gui.entry_autor.get().strip()
+            if not autor_texto:
+                self.gui.mostrar_error(
+                    "Campo Autor vacío",
+                    "Has activado 'Añadir Autor' pero el campo está vacío.\n\n" +
+                    "Debes escribir un nombre de autor o desactivar la opción."
+                )
+                return
+
+        # Validación 6: Word debe estar cerrado
         if self.word_esta_abierto():
             self.gui.mostrar_error("Word Abierto", "Cierra Word antes de empezar")
             return
@@ -290,9 +325,12 @@ class AppController:
                         # 1. Si es Word y está excluido de proceso
                         if es_word and any(exc in f_lower for exc in exc_process):
                             self.log(f"⊗ Excluido de proceso: {f}")
-                            # Copiar si NO está en exclusiones de copia
-                            if not any(exc in f_lower for exc in exc_copy):
-                                FileManager.copiar_archivo(os.path.join(root, f), ruta_dest_final, self.log)
+                            # ✅ FIX: Verificar AMBAS condiciones: copy_attachments Y exclusiones de copia
+                            if self.gui.var_copy_attachments.get():
+                                if not any(exc in f_lower for exc in exc_copy):
+                                    FileManager.copiar_archivo(os.path.join(root, f), ruta_dest_final, self.log)
+                                else:
+                                    self.log(f"  └─ También excluido de copia")
                             continue
 
                         # 2. Si es Word y NO está excluido -> PROCESAR

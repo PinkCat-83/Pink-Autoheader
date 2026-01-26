@@ -46,8 +46,8 @@ autopdf/
 ## Uso
 
 1. **Configurar opciones** de formato mediante checkboxes:
-   - **Formato de página**:  [ ] Logo,  [ ] líneas decorativas,  [ ] autor,  [X] código,  [ ] numeración
-   - **Opciones de carpeta**:  [ ] Respetar estructura,  [ ] copiar anexos,  [ ] convertir a PDF
+   - **Formato de página**:  [X] Logo,  [ ] líneas decorativas,  [ ] autor,  [X] código,  [X] numeración
+   - **Opciones de carpeta**:  [X] Respetar estructura,  [ ] copiar anexos,  [X] convertir a PDF, [X] Guardar modificado en destino
    - **Extensiones**: Archivos `.docx` y `.docm`
 
 2. **Seleccionar carpetas de origen** mediante drag & drop o botón de selección
@@ -75,10 +75,9 @@ autopdf/
 - [ ] **Sistema de renombre automático**: Basado en código de carpeta para reorganización masiva
 - [ ] **Exportar log**: Generar archivo `.txt` externo con historial de procesamiento
 - [ ] **Arrastrar** carpeta de destino además del botón de buscarlo.
-- [ ] **Aumentar niveles de recursividad en los diccionarios** hasta 5?
 
 ### Bugs Conocidos
-- [ ] **Código de carpeta**: Se copia nombre completo en lugar de solo el código extraído
+- [ ] **Posición de línea del encabezado** debe subirse 7 pixeles si "Código carpeta" está desactivado.
 
 ## Licencia
 

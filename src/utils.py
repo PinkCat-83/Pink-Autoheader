@@ -7,17 +7,30 @@ import os
 
 def extraer_codigo(nombre_carpeta):
     """
-    Extrae código tipo '01 - Introducción' del nombre de carpeta
+    Extrae código del nombre de carpeta
+    Soporta dos formatos:
+    - "01 - Introducción - Parte 1" -> "01 - Introducción"
+    - "CAL-05-Patata" -> "CAL-05"
     
     Args:
-        nombre_carpeta (str): Nombre de la carpeta (ej: "01 - Introducción - Parte 1")
+        nombre_carpeta (str): Nombre de la carpeta
     
     Returns:
-        str: Código extraído (ej: "01 - Introducción") o nombre completo si no tiene formato
+        str: Código extraído o nombre completo si no tiene formato reconocido
     """
-    partes = nombre_carpeta.split(" - ")
-    if len(partes) >= 2:
-        return f"{partes[0]} - {partes[1]}"
+    # Caso 1: Formato con espacios " - " (ej: "01 - Introducción - Parte 1")
+    if " - " in nombre_carpeta:
+        partes = nombre_carpeta.split(" - ")
+        if len(partes) >= 2:
+            return f"{partes[0]} - {partes[1]}"
+    
+    # Caso 2: Formato con guiones sin espacios (ej: "CAL-05-Patata")
+    elif "-" in nombre_carpeta:
+        partes = nombre_carpeta.split("-")
+        if len(partes) >= 2:
+            return f"{partes[0]}-{partes[1]}"
+    
+    # Si no coincide con ningún formato, devolver el nombre completo
     return nombre_carpeta
 
 

@@ -114,16 +114,19 @@ class WordProcessor:
                 header_range.InsertParagraphAfter()
                 
                 # 2. Insertar código del ejercicio (si está activado)
-                if opciones.get('add_folder_code', True):
-                    header_range.InsertAfter(codigo_ejercicio)
-                    
-                    # Configurar el párrafo del código
-                    codigo_para = header.Range.Paragraphs(2)
-                    codigo_para.Range.Font.Name = HEADER_FONT_NAME
-                    codigo_para.Range.Font.Size = HEADER_FONT_SIZE
-                    codigo_para.Range.Font.Bold = True
-                    codigo_para.Range.ParagraphFormat.Alignment = WD_ALIGN_PARAGRAPH_RIGHT
-                    codigo_para.Range.ParagraphFormat.SpaceAfter = HEADER_SPACE_AFTER
+                # 2b. Decidir qué texto insertar según la opción
+                texto_a_insertar = codigo_ejercicio if opciones.get('add_folder_code', True) else " "
+
+                # 2c. Insertar el texto (sea el código o el espacio)
+                header_range.InsertAfter(texto_a_insertar)
+
+                # 2d. Configurar el párrafo (SOLO UNA VEZ)
+                codigo_para = header.Range.Paragraphs(2)
+                codigo_para.Range.Font.Name = HEADER_FONT_NAME
+                codigo_para.Range.Font.Size = HEADER_FONT_SIZE
+                codigo_para.Range.Font.Bold = True
+                codigo_para.Range.ParagraphFormat.Alignment = WD_ALIGN_PARAGRAPH_RIGHT
+                codigo_para.Range.ParagraphFormat.SpaceAfter = HEADER_SPACE_AFTER
                 
                 # 3. Insertar línea separadora (si está activado)
                 if opciones.get('add_header_line', True):

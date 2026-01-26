@@ -77,7 +77,7 @@ LINE_ARROWHEAD_WIDTH = 1                 # msoArrowheadWidthNarrow
 LINE_ARROWHEAD_LENGTH = 1                # msoArrowheadLengthShort
 
 # Posiciones de líneas
-LINE_POSITION_Y_HEADER = 66              # Posición Y en encabezado (antes 68)
+LINE_POSITION_Y_HEADER = 68              # Posición Y en encabezado (antes 68)
 LINE_POSITION_Y_FOOTER_OFFSET = 60       # Offset desde el final de página
 
 # ============================================

@@ -46,8 +46,8 @@ autopdf/
 ## Uso
 
 1. **Configurar opciones** de formato mediante checkboxes:
-   - **Formato de página**:  [X] Logo,  [ ] líneas decorativas,  [ ] autor,  [X] código,  [X] numeración
-   - **Opciones de carpeta**:  [X] Respetar estructura,  [ ] copiar anexos,  [X] convertir a PDF, [X] Guardar modificado en destino
+   - **Formato de página**:  [X] Logo,  [X] líneas decorativas,  [X] autor,  [X] código,  [X] numeración
+   - **Opciones de carpeta**:  [X] Respetar estructura,  [X] copiar anexos,  [X] convertir a PDF, [X] Guardar modificado en destino
    - **Extensiones**: Archivos `.docx` y `.docm`
 
 2. **Seleccionar carpetas de origen** mediante drag & drop o botón de selección
@@ -77,7 +77,6 @@ autopdf/
 - [ ] **Arrastrar** carpeta de destino además del botón de buscarlo.
 
 ### Bugs Conocidos
-- [ ] **Posición de línea del encabezado** debe subirse 7 pixeles si "Código carpeta" está desactivado.
 
 ## Licencia
 

@@ -12,7 +12,7 @@ from tkinter import filedialog, messagebox
 
 from src.word_processor import WordProcessor
 from src.file_manager import FileManager
-from src.utils import extraer_codigo, archivo_contiene_prohibida
+from src.utils import extraer_codigo, archivo_contiene_prohibida, renombrar_archivo_con_codigo, construir_nombre_con_codigo
 from src.config_manager import ConfigManager
 
 
@@ -71,6 +71,9 @@ class AppController:
             # Cargar Opciones: Extensiones
             self.gui.var_process_docx.set(self.config_manager.get_bool('PROCESS_EXTENSIONS', 'process_docx', True))
             self.gui.var_process_docm.set(self.config_manager.get_bool('PROCESS_EXTENSIONS', 'process_docm', False))
+
+            # Cargar opción de renombrado automático
+            self.gui.var_auto_rename.set(self.config_manager.get_bool('COPY_OPTIONS', 'auto_rename', False))
 
             # Cargar Exclusiones
             no_process = self.config_manager.get_str('EXCLUSIONS', 'no_process_names')
@@ -232,6 +235,8 @@ class AppController:
 
         self.config_manager.set_val('EXCLUSIONS', 'no_process_names', self.gui.text_no_process.get('1.0', 'end-1c'))
         self.config_manager.set_val('EXCLUSIONS', 'no_copy_names', self.gui.text_no_copy.get('1.0', 'end-1c'))
+        
+        self.config_manager.set_val('COPY_OPTIONS', 'auto_rename', self.gui.var_auto_rename.get())
 
         self.procesando = True
         self.gui.deshabilitar_boton_empezar()
@@ -239,6 +244,7 @@ class AppController:
         self.archivos_procesados = 0
 
         threading.Thread(target=self.procesar_archivos, daemon=True).start()
+        # self.procesar_archivos()
 
     def procesar_archivos(self):
         import pythoncom
@@ -288,6 +294,117 @@ class AppController:
                                 self.total_archivos += 1
 
             self.log(f"Total archivos a procesar: {self.total_archivos}")
+
+
+            # ============================================================================
+            # ============================================================================
+            # FASE DE RENOMBRADO PREVIO (antes de procesar)
+            # ============================================================================
+
+            # Solo ejecutar si el usuario activó la opción
+            if self.gui.var_auto_rename.get():
+                self.log("\n=== FASE 1: RENOMBRADO DE ARCHIVOS ===")
+
+                # Lista para archivos que necesitan input manual
+                archivos_pendientes = []
+                archivos_renombrados = 0
+
+                # PRIMERA PASADA: Renombrar automáticamente lo que se pueda
+                for carpeta_origen in self.carpetas_a_procesar:
+                    for root, dirs, files in os.walk(carpeta_origen):
+                        # Filtrar carpetas excluidas
+                        dirs[:] = [d for d in dirs if not any(exc in d.lower() for exc in exc_process)]
+                        
+                        # Obtener código de la carpeta actual
+                        codigo = extraer_codigo(os.path.basename(root))
+                        
+                        ###
+                        for f in files:
+                            f_lower = f.lower()
+                            es_word = any(f_lower.endswith(e) for e in exts)
+                            
+                            # Verificar exclusiones
+                            excluido_proceso = any(exc in f_lower for exc in exc_process)
+                            excluido_copia = any(exc in f_lower for exc in exc_copy)
+                            
+                            # Determinar si se debe renombrar
+                            debe_renombrar = False
+                            
+                            # REGLA SIMPLE: Si NO está excluido de copia, se renombra
+                            # (independientemente de si es Word o anexo, y de si está excluido de proceso)
+                            if not excluido_copia:
+                                debe_renombrar = True
+                            
+                            if debe_renombrar:
+                                ruta_completa = os.path.join(root, f)
+                                
+                                exito, nueva_ruta, mensaje, necesita_input = renombrar_archivo_con_codigo(
+                                    ruta_completa,
+                                    codigo
+                                )
+                                
+                                if necesita_input:
+                                    archivos_pendientes.append({
+                                        'ruta': nueva_ruta,
+                                        'codigo': codigo,
+                                        'nombre': mensaje
+                                    })
+                                else:
+                                    self.log(mensaje)
+                                    if exito:
+                                        archivos_renombrados += 1
+                                        
+                                        ###
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+
+                # SEGUNDA PASADA: Procesar archivos que necesitan input manual
+                if archivos_pendientes:
+                    self.log(f"\n📝 {len(archivos_pendientes)} archivo(s) requieren definir raíz manualmente\n")
+                    
+                    for pendiente in archivos_pendientes:
+                        nombre_completo = pendiente['nombre']
+                        nombre_sin_ext = os.path.splitext(nombre_completo)[0]
+                        nombre_carpeta = os.path.basename(os.path.dirname(pendiente['ruta']))
+                        
+                        # Llamar al diálogo desde el hilo principal
+                        raiz = self.gui.solicitar_raiz_archivo(nombre_completo, nombre_sin_ext, nombre_carpeta)
+                        
+                        if raiz:
+                            # Construir nuevo nombre y renombrar
+                            extension = os.path.splitext(nombre_completo)[1]
+                            nuevo_nombre = construir_nombre_con_codigo(pendiente['codigo'], raiz, extension)
+                            nueva_ruta = os.path.join(os.path.dirname(pendiente['ruta']), nuevo_nombre)
+                            
+                            try:
+                                # Verificar que no exista ya
+                                if os.path.exists(nueva_ruta) and os.path.abspath(pendiente['ruta']) != os.path.abspath(nueva_ruta):
+                                    self.log(f"⚠️ Ya existe: {nuevo_nombre}")
+                                else:
+                                    os.rename(pendiente['ruta'], nueva_ruta)
+                                    self.log(f"✓ Renombrado (manual): {nombre_completo} → {nuevo_nombre}")
+                                    archivos_renombrados += 1
+                            except Exception as e:
+                                self.log(f"❌ Error al renombrar {nombre_completo}: {e}")
+                        else:
+                            self.log(f"⊗ Renombrado cancelado: {nombre_completo}")
+
+                self.log(f"\n✓ Total renombrados: {archivos_renombrados}\n")
+            else:
+                self.log("\n⊗ Renombrado automático desactivado\n")
+
+
+
+
+
+            # ============================================================================
+            # FASE DE PROCESAMIENTO (código existente)
+            # ============================================================================
+            self.log("=== FASE 2: PROCESAMIENTO DE DOCUMENTOS ===\n")
 
             word = win32com.client.Dispatch('Word.Application')
             word.Visible = True

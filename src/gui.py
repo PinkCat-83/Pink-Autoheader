@@ -3,6 +3,11 @@ Interfaz gráfica de usuario para el convertidor DOCX a PDF
 Versión mejorada con layout 16:9 y dos columnas
 """
 
+print("=" * 60)
+print("CARGANDO GUI.PY - VERSION 2024-01-27-FINAL")
+print("=" * 60)
+
+
 import tkinter as tk
 from tkinter import scrolledtext, ttk
 import os
@@ -57,6 +62,7 @@ class GUI:
         self.var_copy_attachments = tk.BooleanVar(value=True)
         self.var_save_modified_dest = tk.BooleanVar(value=True)
         self.var_copy_as_pdf = tk.BooleanVar(value=True)
+        self.var_auto_rename = tk.BooleanVar(value=False) 
 
         # Extensiones
         self.var_process_docx = tk.BooleanVar(value=True)
@@ -165,81 +171,155 @@ class GUI:
         autor_default = self._cargar_autor_desde_archivo()
         self.entry_autor.insert(0, autor_default)
 
-    def _crear_seccion_opciones_detalladas(self, parent):
-        """Crea las secciones de opciones detalladas con checkboxes"""
-        # Encabezado y Pie de Página
-        f_hp = tk.LabelFrame(
-            parent, 
-            text="📄 Encabezado y Pie de Página", 
-            font=("Arial", 9, "bold"), 
-            padx=10, 
-            pady=5
-        )
-        f_hp.pack(fill=tk.X, pady=5)
-
-        opts_hp = [
-            ("Logo en encabezado", self.var_add_logo),
-            ("Código carpeta", self.var_add_folder_code),
-            ("Línea encabezado", self.var_add_header_line),
-            ("Línea pie página", self.var_add_footer_line),
-            ("Añadir Autor", self.var_add_author),
-            ("Número página", self.var_add_page_number)
-        ]
-        for i, (txt, var) in enumerate(opts_hp):
-            tk.Checkbutton(
-                f_hp, 
-                text=txt, 
-                variable=var, 
-                font=("Arial", 8)
-            ).grid(row=i//2, column=i%2, sticky=tk.W, padx=5, pady=2)
-
-        # Opciones de Copia
-        f_cp = tk.LabelFrame(
-            parent, 
-            text="📂 Opciones de Copia", 
-            font=("Arial", 9, "bold"), 
-            padx=10, 
-            pady=5
-        )
-        f_cp.pack(fill=tk.X, pady=5)
-
-        opts_cp = [
-            ("Respetar estructura", self.var_respect_structure),
-            ("Copiar anexos", self.var_copy_attachments),
-            ("Guardar modificado en destino", self.var_save_modified_dest),
-            ("Copiar como PDF", self.var_copy_as_pdf)
-        ]
-        for i, (txt, var) in enumerate(opts_cp):
-            tk.Checkbutton(
-                f_cp, 
-                text=txt, 
-                variable=var, 
-                font=("Arial", 8)
-            ).grid(row=i//2, column=i%2, sticky=tk.W, padx=5, pady=2)
-
-        # Extensiones a procesar
-        f_ex = tk.LabelFrame(
-            parent, 
-            text="📄 Extensiones a procesar", 
-            font=("Arial", 9, "bold"), 
-            padx=10, 
-            pady=5
-        )
-        f_ex.pack(fill=tk.X, pady=5)
+    
+    
+    
+    
+    ######################################################
+    ######################################################
+    
+    def solicitar_raiz_archivo(self, nombre_completo, nombre_sin_ext, nombre_carpeta=None):
+        """
+        Muestra un diálogo personalizado para ingresar la raíz del archivo.
         
-        tk.Checkbutton(
-            f_ex, 
-            text="Archivos .docx", 
-            variable=self.var_process_docx, 
-            font=("Arial", 8)
+        Args:
+            nombre_completo (str): Nombre completo del archivo (con extensión)
+            nombre_sin_ext (str): Nombre sin extensión (sugerencia por defecto)
+            nombre_carpeta (str): Nombre de la carpeta contenedora (opcional)
+        
+        Returns:
+            str: Raíz ingresada por el usuario o None si cancela
+        """
+        import tkinter as tk
+        
+        print(f"🔥🔥🔥 MÉTODO NUEVO DE DIALOGO - VERSION FINAL 🔥🔥🔥")
+        
+        # Variable para almacenar el resultado
+        resultado = {'valor': None, 'cerrado': False}
+        
+        # Crear ventana modal personalizada
+        dialogo = tk.Toplevel(self.root)
+        dialogo.title("🔤 Definir Raíz del Archivo")
+        dialogo.geometry("550x280")
+        dialogo.transient(self.root)
+        dialogo.grab_set()
+        
+        # Centrar el diálogo
+        dialogo.update_idletasks()
+        x = (dialogo.winfo_screenwidth() // 2) - (550 // 2)
+        y = (dialogo.winfo_screenheight() // 2) - (280 // 2)
+        dialogo.geometry(f"550x280+{x}+{y}")
+        
+        # Mensaje
+        frame_msg = tk.Frame(dialogo)
+        frame_msg.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        # Mostrar carpeta si está disponible
+        if nombre_carpeta:
+            tk.Label(
+                frame_msg,
+                text=f"📁 Carpeta: {nombre_carpeta}",
+                font=("Arial", 9),
+                fg="#666666"
+            ).pack(anchor=tk.W, pady=(0, 5))
+        
+        tk.Label(
+            frame_msg,
+            text="No se detectó patrón automático en:",
+            font=("Arial", 10)
+        ).pack(anchor=tk.W)
+        
+        tk.Label(
+            frame_msg,
+            text=f"📄 {nombre_completo}",
+            font=("Arial", 10, "bold"),
+            fg="#0066cc"
+        ).pack(anchor=tk.W, pady=(5, 15))
+        
+        tk.Label(
+            frame_msg,
+            text="Ingresa la RAÍZ del nombre del archivo\n(se le añadirá el código de carpeta al principio):",
+            font=("Arial", 9),
+            justify=tk.LEFT
+        ).pack(anchor=tk.W, pady=(0, 10))
+        
+        # Campo de entrada
+        entry_raiz = tk.Entry(frame_msg, font=("Arial", 11), width=50)
+        entry_raiz.pack(fill=tk.X, pady=(0, 20))
+        entry_raiz.insert(0, nombre_sin_ext)
+        entry_raiz.select_range(0, tk.END)
+        entry_raiz.focus_set()
+        
+        # Funciones de botones
+        def aceptar():
+            valor = entry_raiz.get().strip()
+            if valor:
+                resultado['valor'] = valor
+            else:
+                resultado['valor'] = None
+            resultado['cerrado'] = True
+            dialogo.destroy()
+        
+        def cancelar():
+            resultado['valor'] = None
+            resultado['cerrado'] = True
+            dialogo.destroy()
+        
+        # Botones
+        frame_botones = tk.Frame(dialogo)
+        frame_botones.pack(fill=tk.X, padx=20, pady=(0, 20))
+        
+        tk.Button(
+            frame_botones,
+            text="✓ Aceptar",
+            command=aceptar,
+            bg="#28a745",
+            fg="white",
+            font=("Arial", 10, "bold"),
+            width=15
+        ).pack(side=tk.LEFT, padx=(0, 10))
+        
+        tk.Button(
+            frame_botones,
+            text="✗ Cancelar",
+            command=cancelar,
+            bg="#dc3545",
+            fg="white",
+            font=("Arial", 10, "bold"),
+            width=15
         ).pack(side=tk.LEFT)
         
-        tk.Checkbutton(
-            f_ex, 
-            text="Archivos .docm", 
-            variable=self.var_process_docm, 
-            font=("Arial", 8)
-        ).pack(side=tk.LEFT, padx=20)
+        # Permitir Enter para aceptar
+        entry_raiz.bind('<Return>', lambda e: aceptar())
+        
+        # Permitir Escape para cancelar
+        dialogo.bind('<Escape>', lambda e: cancelar())
+        
+        # Manejar cierre de ventana
+        dialogo.protocol("WM_DELETE_WINDOW", cancelar)
+        
+        # ESPERA MANUAL - Procesar eventos hasta que se cierre
+        while not resultado['cerrado']:
+            try:
+                self.root.update()
+                dialogo.update()
+            except:
+                break
+        
+        return resultado['valor']
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
     def _crear_seccion_carpetas(self, parent):
         """Crea la sección de carpetas a procesar"""
@@ -294,7 +374,7 @@ class GUI:
         # No procesar
         f1 = tk.LabelFrame(
             f_exc, 
-            text="🚫 No procesar (nombre)", 
+            text="🚫 Nombres de Archivos que no se procesarán (formato o pdf)", 
             font=("Arial", 8, "bold"),
             padx=5,
             pady=5
@@ -307,7 +387,7 @@ class GUI:
         # No copiar
         f2 = tk.LabelFrame(
             f_exc, 
-            text="🚫 No copiar (archivo/Carpeta)", 
+            text="🚫 Ignorados (archivo/Carpeta)", 
             font=("Arial", 8, "bold"),
             padx=5,
             pady=5
@@ -621,3 +701,103 @@ class GUI:
     def ejecutar(self):
         """Inicia el loop principal de la interfaz"""
         self.root.mainloop()
+                
+                
+                
+                
+                
+                
+                
+                
+    def _crear_seccion_opciones_detalladas(self, parent):
+        """Crea las secciones de opciones detalladas con checkboxes"""
+        # Encabezado y Pie de Página
+        f_hp = tk.LabelFrame(
+            parent, 
+            text="📄 Encabezado y Pie de Página", 
+            font=("Arial", 9, "bold"), 
+            padx=10, 
+            pady=5
+        )
+        f_hp.pack(fill=tk.X, pady=5)
+
+        opts_hp = [
+            ("Logo en encabezado", self.var_add_logo),
+            ("Código carpeta", self.var_add_folder_code),
+            ("Línea encabezado", self.var_add_header_line),
+            ("Línea pie página", self.var_add_footer_line),
+            ("Añadir Autor", self.var_add_author),
+            ("Número página", self.var_add_page_number)
+        ]
+        for i, (txt, var) in enumerate(opts_hp):
+            tk.Checkbutton(
+                f_hp, 
+                text=txt, 
+                variable=var, 
+                font=("Arial", 8)
+            ).grid(row=i//2, column=i%2, sticky=tk.W, padx=5, pady=2)
+
+        # Opciones de Copia
+        f_cp = tk.LabelFrame(
+            parent, 
+            text="📂 Opciones de Copia", 
+            font=("Arial", 9, "bold"), 
+            padx=10, 
+            pady=5
+        )
+        f_cp.pack(fill=tk.X, pady=5)
+
+        opts_cp = [
+            ("Respetar estructura", self.var_respect_structure),
+            ("Copiar anexos", self.var_copy_attachments),
+            ("Guardar modificado en destino", self.var_save_modified_dest),
+            ("Copiar como PDF", self.var_copy_as_pdf),
+            ("Renombrar con código carpeta", self.var_auto_rename)
+        ]
+        for i, (txt, var) in enumerate(opts_cp):
+            tk.Checkbutton(
+                f_cp, 
+                text=txt, 
+                variable=var, 
+                font=("Arial", 8)
+            ).grid(row=i//2, column=i%2, sticky=tk.W, padx=5, pady=2)
+
+        # Extensiones a procesar
+        f_ex = tk.LabelFrame(
+            parent, 
+            text="📄 Extensiones a procesar", 
+            font=("Arial", 9, "bold"), 
+            padx=10, 
+            pady=5
+        )
+        f_ex.pack(fill=tk.X, pady=5)
+        
+        tk.Checkbutton(
+            f_ex, 
+            text="Archivos .docx", 
+            variable=self.var_process_docx, 
+            font=("Arial", 8)
+        ).pack(side=tk.LEFT)
+        
+        tk.Checkbutton(
+            f_ex, 
+            text="Archivos .docm", 
+            variable=self.var_process_docm, 
+            font=("Arial", 8)
+        ).pack(side=tk.LEFT, padx=20)
+        
+        
+        
+        
+    def test_dialogo_simple(self):
+        """Método de prueba para verificar que los diálogos funcionan"""
+        from tkinter import simpledialog
+        
+        print("TEST: Mostrando diálogo de prueba...")
+        resultado = simpledialog.askstring(
+            "Prueba",
+            "Escribe algo de prueba:",
+            parent=self.root
+        )
+        print(f"TEST: Resultado = {repr(resultado)}")
+        self.log(f"Resultado del test: {resultado}")

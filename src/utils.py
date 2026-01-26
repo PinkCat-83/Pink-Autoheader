@@ -3,6 +3,7 @@ Funciones utilitarias generales
 """
 
 import os
+import re
 
 
 def extraer_codigo(nombre_carpeta):
@@ -32,6 +33,132 @@ def extraer_codigo(nombre_carpeta):
     
     # Si no coincide con ningún formato, devolver el nombre completo
     return nombre_carpeta
+
+
+def extraer_raiz_archivo(nombre_archivo):
+    """
+    Extrae la raíz del nombre de archivo detectando automáticamente el patrón.
+    El patrón se identifica por la presencia de DOS GUIONES (con o sin espacios).
+    Todo lo que viene DESPUÉS del segundo guión es la raíz.
+    
+    Ejemplos:
+    - "DOC-13-Mi vida salvaje.docx" -> "Mi vida salvaje"
+    - "CAL-87R1-Tareas de cálculo.pdf" -> "Tareas de cálculo"
+    - "AABBCC-192X11-Base de Datos.docx" -> "Base de Datos"
+    - "01 - Intro - Documento.docx" -> "Documento"
+    
+    Args:
+        nombre_archivo (str): Nombre completo del archivo con extensión
+    
+    Returns:
+        tuple: (raiz_detectada, patron_encontrado)
+               raiz_detectada (str): Nombre raíz extraído o None si no se detectó
+               patron_encontrado (bool): True si se encontró patrón automático
+    """
+    # Separar nombre y extensión
+    nombre_sin_ext, extension = os.path.splitext(nombre_archivo)
+    
+    # Caso 1: Formato con espacios " - " (ej: "01 - Intro - Mi vida salvaje")
+    if " - " in nombre_sin_ext:
+        partes = nombre_sin_ext.split(" - ")
+        if len(partes) >= 3:
+            # Tomar todo después del segundo " - "
+            raiz = " - ".join(partes[2:])
+            return (raiz, True)
+    
+    # Caso 2: Formato con guiones sin espacios
+    # Buscar el SEGUNDO guión y tomar todo después de él
+    guiones_encontrados = 0
+    for i, char in enumerate(nombre_sin_ext):
+        if char == '-':
+            guiones_encontrados += 1
+            if guiones_encontrados == 2:
+                # Encontramos el segundo guión, la raíz es todo lo que viene después
+                raiz = nombre_sin_ext[i+1:]
+                if raiz:  # Asegurar que hay algo después del segundo guión
+                    return (raiz, True)
+                break
+    
+    # No se encontró patrón reconocido (menos de 2 guiones o vacío después del segundo)
+    return (None, False)
+
+
+def construir_nombre_con_codigo(codigo, raiz, extension):
+    """
+    Construye el nuevo nombre de archivo combinando código + raíz + extensión.
+    Adapta el formato según el tipo de código detectado.
+    
+    Args:
+        codigo (str): Código de la carpeta (ej: "CAL-05" o "01 - Introducción")
+        raiz (str): Raíz del nombre del archivo
+        extension (str): Extensión del archivo (incluye el punto)
+    
+    Returns:
+        str: Nuevo nombre completo del archivo
+    """
+    # Detectar formato del código para usar el separador adecuado
+    if " - " in codigo:
+        # Formato con espacios: "01 - Introducción"
+        return f"{codigo} - {raiz}{extension}"
+    else:
+        # Formato con guiones: "CAL-05"
+        return f"{codigo}-{raiz}{extension}"
+
+
+def renombrar_archivo_con_codigo(ruta_archivo, codigo):
+    """
+    Renombra un archivo añadiendo el código de carpeta al principio.
+    
+    Si el archivo ya tiene un código (detectado por patrón de dos guiones),
+    este será REEMPLAZADO por el nuevo código de carpeta.
+    
+    Proceso:
+    1. Intenta detectar automáticamente la raíz del nombre (todo después del 2º guión)
+    2. Si detecta patrón, renombra automáticamente
+    3. Si NO detecta patrón, retorna información para que el controlador pida input
+    
+    Args:
+        ruta_archivo (str): Ruta completa del archivo original
+        codigo (str): Código de la carpeta a añadir
+    
+    Returns:
+        tuple: (exito, nueva_ruta, mensaje, necesita_input)
+               exito (bool): True si se renombró correctamente
+               nueva_ruta (str): Nueva ruta del archivo o None si falló
+               mensaje (str): Mensaje descriptivo o nombre de archivo si necesita input
+               necesita_input (bool): True si necesita input del usuario
+    """
+    try:
+        directorio = os.path.dirname(ruta_archivo)
+        nombre_completo = os.path.basename(ruta_archivo)
+        nombre_sin_ext, extension = os.path.splitext(nombre_completo)
+        
+        # Paso 1: Intentar detección automática
+        raiz, patron_encontrado = extraer_raiz_archivo(nombre_completo)
+        
+        if patron_encontrado:
+            # ✅ Patrón detectado automáticamente
+            nuevo_nombre = construir_nombre_con_codigo(codigo, raiz, extension)
+            nueva_ruta = os.path.join(directorio, nuevo_nombre)
+            
+            # Verificar que no exista ya (o que sea el mismo archivo)
+            if os.path.exists(nueva_ruta) and os.path.abspath(ruta_archivo) != os.path.abspath(nueva_ruta):
+                return (False, None, f"⚠️ Ya existe archivo con nombre: {nuevo_nombre}", False)
+            
+            # Si el nombre ya es correcto, no renombrar
+            if nombre_completo == nuevo_nombre:
+                return (True, ruta_archivo, f"✓ Ya tiene el código correcto: {nombre_completo}", False)
+            
+            # Renombrar
+            os.rename(ruta_archivo, nueva_ruta)
+            return (True, nueva_ruta, f"✓ Renombrado automáticamente: {nombre_completo} → {nuevo_nombre}", False)
+        
+        # No se detectó patrón - NECESITA INPUT DEL USUARIO
+        # Retornar información para que el controlador maneje esto
+        return (False, ruta_archivo, nombre_completo, True)  # necesita_input = True
+        
+    except Exception as e:
+        return (False, None, f"❌ Error al renombrar {os.path.basename(ruta_archivo)}: {str(e)}", False)
 
 
 def obtener_palabras_prohibidas_lista(texto):
